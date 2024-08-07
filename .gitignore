@@ -1,0 +1,7 @@
+# build artififacts
+./build
+
+# testing artifacts
+*.s
+*.ssa
+a.out
