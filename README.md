@@ -4,7 +4,7 @@ C3 Cubed is a QBE wrapper written in C3
 
 It's files can be found under /lib/c3cubed.c3l
 
-This repo contains 2 example programs written, one being a brainfuck compiler written using the library, the other being an implementation of (Kaleidescope)[https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html] written in it.
+This repo contains 2 example programs written, one being a brainfuck compiler written using the library, the other being an implementation of [Kaleidescope](https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html) written in it.
 
 the first one can be built by doing `c3c build brainfuckc`
 
