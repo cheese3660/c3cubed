@@ -7,15 +7,18 @@ enum InstructionArgumentType {
     THREE_ADDRESS_NO_RET,
     TWO_ADDRESS,
     TWO_ADDRESS_NO_RET,
-    ONE_ADDRESS, // This is stuff that takes 1 item, and doesn't return anything
+    ONE_ADDRESS,
     JUMP,
     CONDITIONAL,
-    RETURN, // This one has an optional value
-    HALT, // This one has no values
+    RETURN,
+    HALT,
     CALL,
     PHI
 }
 
+/**
+ *  Represents a QBE instruction type
+ */
 enum InstructionType : char ( String textual, InstructionArgumentType arg_type) {
     // Arithmetic Instructions
     ADD = {"add", THREE_ADDRESS},
@@ -134,124 +137,6 @@ enum InstructionType : char ( String textual, InstructionArgumentType arg_type) 
     HALT = {"hlt", HALT},
 }
 
-enum ValueType : char (String info) {
-    NONE = "none",
-    INTEGER = "integer",
-    FLOAT = "single",
-    DOUBLE = "double",
-    SYMBOL = "symbol",
-    THREAD_LOCAL_SYMBOL = "thread local symbol"
-}
-
-struct Value {
-    ValueType type;
-    union {
-        ulong integer;
-        float flt;
-        double dbl;
-        Identifier symbol;
-    }
-}
-
-macro create_value(in) {
-    $switch
-        $case $typeof(in).typeid == ulong.typeid:
-            return Value {
-                .type = INTEGER,
-                .integer = in
-            };
-        $case $typeof(in).typeid == uint.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = (ulong)in
-            };
-        $case $typeof(in).typeid == long.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = bitcast(in, ulong)
-            };
-        $case $typeof(in).typeid == int.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = (ulong)bitcast(in, uint)
-            };
-        $case $typeof(in).typeid == ushort.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = (ulong)in
-            };
-        $case $typeof(in).typeid == short.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = (ulong)bitcast(in, ushort)
-            };
-        $case $typeof(in).typeid == ichar.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = (ulong)bitcast(in, char)
-            };
-        $case $typeof(in).typeid == char.typeid:
-            return Value{
-                .type = INTEGER,
-                .integer = (ulong)in
-            };
-        $case $typeof(in).typeid == float.typeid:
-            return Value{
-                .type = FLOAT,
-                .flt = in
-            };
-        $case $typeof(in).typeid == double.typeid:
-            return Value{
-                .type = DOUBLE,
-                .dbl = in
-            };
-        $case $typeof(in).typeid == Identifier.typeid:
-            return Value{
-                .type = SYMBOL,
-                .symbol = in
-            };
-        $case $typeof(in).typeid == Data*.typeid:
-            return Value{
-                .type = SYMBOL,
-                .symbol = in.reference()
-            };
-        $case $typeof(in).typeid == Function*.typeid:
-            return Value{
-                .type = SYMBOL,
-                .symbol = in.reference()
-            };
-        $case $typeof(in).typeid == Value.typeid:
-            return in;
-        $default:
-            return Value{
-                .type = NONE
-            };
-    $endswitch
-}
-
-fn String Value.get_string(&self) {
-    DString str;
-    str.temp_init();
-    switch (self.type) {
-        case INTEGER:
-            str.appendf("%d",self.integer);
-        case FLOAT:
-            str.append("f_");
-            str.appendf("%f",self.flt);
-        case DOUBLE:
-            str.append("d_");
-            str.appendf("%f",self.dbl);
-        case SYMBOL:
-            str.append(self.symbol.get_string());
-        default:
-            break;
-    }
-    return str.str_view();
-}
-
-
-const Value NO_VALUE = {.type = NONE};
-
 struct ThreeAddress {
     Identifier return_name;
     TypeReference return_type;
@@ -290,19 +175,29 @@ struct Conditional {
     Block* failure;
 }
 
-
-// This defaults to NONE
 struct Return {
     Value retval;
 }
 
+
+/**
+ *  Represents a single arm in a phi instruction
+ */
 struct PhiBranch {
+    // The block that predicates the value
     Block* from;
+    // The value to be given
     Value value;
 }
 def PhiList = List(<PhiBranch>);
 
-macro PhiList.branch(&self, from, value) {
+/**
+ *  Add a branch to a phi list
+ *
+ *  @param [&in] from   "The predicate block"
+ *  @param value        "The value to set"
+ */
+macro PhiList.branch(&self, Block* from, value) {
     self.push({
         .from = from,
         .value = create_value(value)
@@ -321,20 +216,36 @@ enum CallArgType {
     TYPED
 }
 
+/**
+ *  Represents a single call argument
+ */
 struct CallArg {
+    // The type of the call argument
     CallArgType type;
+    // The datatype of the call argument
     TypeReference argument_type;
+    // The value of the call argument
     Value value;
 }
 
 def CallList = List(<CallArg>);
 
+/**
+ *  Add var args to a parameter list
+ */
 fn void CallList.var_args(&self) {
     self.push({
         .type = VARIADIC
     });
 }
 
+/**
+ *  Add an env parameter to a parameter list
+ *
+ *  @param e                    "The env parameter"
+ *
+ *  @require self.size == 0     `Env parameters must be the first parameter`
+ */
 fn void CallList.add_env(&self, Value e) {
     self.push({
         .type = ENV,
@@ -342,10 +253,25 @@ fn void CallList.add_env(&self, Value e) {
     });
 }
 
+/**
+ *  Add an env parameter to a parameter list, automatically converting it to a value
+ *
+ *  @param e                    "The env parameter"
+ *
+ *  @require self.size == 0     `Env parameters must be the first parameter`
+ */
 macro CallList.env(&self, e) {
     self.add_env(create_value(e));
 }
 
+/**
+ *  Add an argument to a parameter list
+ *  
+ *  @param t                    "The type of the parameter"
+ *  @param a                    "The argument value"
+ *
+ *  @require t.type != NONE     `Parameter type cannot be TYPE_VOID`
+ */
 fn void CallList.add_arg(&self, TypeReference t, Value a) {
     self.push({
         .type = TYPED,
@@ -354,7 +280,15 @@ fn void CallList.add_arg(&self, TypeReference t, Value a) {
     });
 }
 
-macro CallList.arg(&self, t, a) {
+/**
+ *  Add an argument to a parameter list, automatically converting it to a value
+ *  
+ *  @param t                    "The type of the parameter"
+ *  @param a                    "The argument value"
+ *
+ *  @require t.type != NONE     `Parameter type cannot be TYPE_VOID`
+ */
+macro CallList.arg(&self, TypeReference t, a) {
     self.add_arg(t, create_value(a));
 }
 
@@ -382,6 +316,11 @@ struct Instruction {
     }
 }
 
+/**
+ *  Get the QBE textual representation of an instruction
+ *
+ *  @return "The textual representation allocated with the temporary allocator"
+ */
 fn String Instruction.get_string(&self) {
     DString str = dstring::temp_new();
     bool started = false;
@@ -444,6 +383,9 @@ fn String Instruction.get_string(&self) {
 }
 
 
+/**
+ *  Free an instruction, automatically called by Block.free
+ */
 fn void Instruction.free(&self) {
     switch (self.type.arg_type) {
         case CALL:
