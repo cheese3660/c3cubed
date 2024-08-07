@@ -1,5 +1,5 @@
 # build artififacts
-./build
+build/
 
 # testing artifacts
 *.s
