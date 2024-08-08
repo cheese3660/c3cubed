@@ -15,6 +15,8 @@ struct Block {
     Allocator allocator;
     // The instructions in the block
     InstructionList insts;
+    // Whether the block has been terminated (for example via a jump instruction)
+    bool terminated;
 }
 
 
@@ -82,6 +84,7 @@ fn void Block.free(&self) {
  *  @require ty.arg_type == THREE_ADDRESS   `Instruction is not a three address instruction`
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 fn Identifier Block.create_three_address(&self, InstructionType ty, Value a, Value b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     if (result_location.type == UNINITIALIZED) {
@@ -113,6 +116,7 @@ fn Identifier Block.create_three_address(&self, InstructionType ty, Value a, Val
  *  @require ty.arg_type == TWO_ADDRESS     `Instruction is not a three address instruction`
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 fn Identifier Block.create_two_address(&self, InstructionType ty, Value a, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     if (result_location.type == UNINITIALIZED) {
@@ -136,7 +140,8 @@ fn Identifier Block.create_two_address(&self, InstructionType ty, Value a, TypeR
  *  @param ty               "The instruction type to add, must be a two address instruction"
  *  @param a                "The parameter to the instruction"
  *
- *  @require ty.arg_type == ONE_ADDRESS   `Instruction is not a three address instruction`
+ *  @require ty.arg_type == ONE_ADDRESS     `Instruction is not a three address instruction`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 fn void Block.create_one_address(&self, InstructionType ty, Value a) {
     self.add_instruction(Instruction {
@@ -154,7 +159,8 @@ fn void Block.create_one_address(&self, InstructionType ty, Value a) {
  *  @param a                "The first parameter to the instruction"
  *  @param b                "The second parameter to the instruction"
  *
- *  @require ty.arg_type == TWO_ADDRESS_NO_RET `Instruction is not a two address no return instruction`
+ *  @require ty.arg_type == TWO_ADDRESS_NO_RET  `Instruction is not a two address no return instruction`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 fn void Block.create_two_address_no_ret(&self, InstructionType ty, Value a, Value b) {
     self.add_instruction(Instruction {
@@ -174,7 +180,8 @@ fn void Block.create_two_address_no_ret(&self, InstructionType ty, Value a, Valu
  *  @param b                "The second parameter to the instruction"
  *  @param c                "The third parameter to the instruction"
  *
- *  @require ty.arg_type == THREE_ADDRESS_NO_RET `Instruction is not a three address no return instruction`
+ *  @require ty.arg_type == THREE_ADDRESS_NO_RET    `Instruction is not a three address no return instruction`
+ *  @require !self.terminated                       `Block has already been terminated!`
  */
 fn void Block.create_three_address_no_ret(&self, InstructionType ty, Value a, Value b, Value c) {
     self.add_instruction(Instruction {
@@ -199,6 +206,7 @@ fn void Block.create_three_address_no_ret(&self, InstructionType ty, Value a, Va
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.add(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(ADD, create_value(a), create_value(b), result_type, result_location);
@@ -216,6 +224,7 @@ macro Block.add(&self, a, b, TypeReference result_type, Identifier result_locati
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.divide(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(DIVIDE, create_value(a), create_value(b), result_type, result_location);
@@ -232,6 +241,7 @@ macro Block.divide(&self, a, b, TypeReference result_type, Identifier result_loc
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.negate(&sel, a, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_two_address(NEGATE, create_value(a), result_type, result_location);
@@ -249,6 +259,7 @@ macro Block.negate(&sel, a, TypeReference result_type, Identifier result_locatio
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.multiply(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(MULTIPLY, create_value(a), create_value(b), result_type, result_location);
@@ -266,6 +277,7 @@ macro Block.multiply(&self, a, b, TypeReference result_type, Identifier result_l
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.or(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(OR, create_value(a), create_value(b), result_type, result_location);
@@ -283,6 +295,7 @@ macro Block.or(&self, a, b, TypeReference result_type, Identifier result_locatio
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.xor(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(XOR, create_value(a), create_value(b), result_type, result_location);
@@ -300,6 +313,7 @@ macro Block.xor(&self, a, b, TypeReference result_type, Identifier result_locati
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.and(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(AND, create_value(a), create_value(b), result_type, result_location);
@@ -317,6 +331,7 @@ macro Block.and(&self, a, b, TypeReference result_type, Identifier result_locati
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.remainder(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(REMAINDER, create_value(a), create_value(b), result_type, result_location);
@@ -334,6 +349,7 @@ macro Block.remainder(&self, a, b, TypeReference result_type, Identifier result_
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.arithmetic_shift_right(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(ARITHMETIC_SHIFT_RIGHT, create_value(a), create_value(b), result_type, result_location);
@@ -351,6 +367,7 @@ macro Block.arithmetic_shift_right(&self, a, b, TypeReference result_type, Ident
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.shift_right(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(SHIFT_RIGHT, create_value(a), create_value(b), result_type, result_location);
@@ -368,6 +385,7 @@ macro Block.shift_right(&self, a, b, TypeReference result_type, Identifier resul
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.shift_left(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(SHIFT_LEFT, create_value(a), create_value(b), result_type, result_location);
@@ -385,6 +403,7 @@ macro Block.shift_left(&self, a, b, TypeReference result_type, Identifier result
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.subtract(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(SUBTRACT, create_value(a), create_value(b), result_type, result_location);
@@ -402,6 +421,7 @@ macro Block.subtract(&self, a, b, TypeReference result_type, Identifier result_l
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.unsigned_divide(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(UNSIGNED_DIVISION, create_value(a), create_value(b), result_type, result_location);
@@ -419,6 +439,7 @@ macro Block.unsigned_divide(&self, a, b, TypeReference result_type, Identifier r
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.unsigned_remainder(&self, a, b, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_three_address(UNSIGNED_REMAINDER, create_value(a), create_value(b), result_type, result_location);
@@ -431,7 +452,8 @@ macro Block.unsigned_remainder(&self, a, b, TypeReference result_type, Identifie
  *  @param value            "The value to store"
  *  @param location         "The location to store the value in"
  *
- *  @require type.type.store_load_type `Type is not valid for storing`
+ *  @require type.type.store_load_type  `Type is not valid for storing`
+ *  @require !self.terminated           `Block has already been terminated!`
  */
 fn void Block.create_store(&self, TypeReference type, Value value, Value location) {
     InstructionType itype;
@@ -468,6 +490,7 @@ fn void Block.create_store(&self, TypeReference type, Value value, Value locatio
  *  @param location         "The location to store the value in"
  *
  *  @require type.type.store_load_type      `Type is not valid for storing`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.store(&self, Identifier type, value, location) {
     self.create_store(type, create_value(value), create_value(location));
@@ -484,6 +507,7 @@ macro Block.store(&self, Identifier type, value, location) {
  *
  *  @require type.type.store_load_type      `Type is not valid for loading`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 fn Identifier Block.create_load(&self, Value location, TypeReference type, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -535,6 +559,7 @@ fn Identifier Block.create_load(&self, Value location, TypeReference type, Ident
  *
  *  @require type.type.store_load_type      `Type is not valid for loading`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.load(&self, location, TypeReference type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_load(create_value(location), type, result_location);
@@ -562,15 +587,14 @@ macro Block.blit(&self, src, dest, length) {
  *
  *  @require alignment==4 || alignment == 8 || alignment == 16  `alignment must be one of 4, 8, or 16`
  *  @require result_location.type != GLOBAL                     `Result cannot be a global symbol`
+ *  @require !self.terminated                                   `Block has already been terminated!`
  */
 fn Identifier Block.create_alloc(&self, usz alignment, Value amount, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
-    if (alignment == 4) {
-        itype = ALLOCATE_ALIGN_4;
-    } else if (alignment == 8) {
-        itype = ALLOCATE_ALIGN_8;
-    } else if (alignment == 16) {
-        itype = ALLOCATE_ALIGN_16;
+    switch (alignment) {
+        case 4: itype == ALLOCATE_ALIGN_4;
+        case 8: itype == ALLOCATE_ALIGN_8;
+        case 16: itype == ALLOCATE_ALIGN_16;
     }
     return self.create_two_address(itype, create_value(amount),TYPE_LONG, result_location);
 }
@@ -586,6 +610,7 @@ fn Identifier Block.create_alloc(&self, usz alignment, Value amount, Identifier 
  *
  *  @require alignment==4 || alignment == 8 || alignment == 16  `alignment must be one of 4, 8, or 16`
  *  @require result_location.type != GLOBAL                     `Result cannot be a global symbol`
+ *  @require !self.terminated                                   `Block has already been terminated!`
  */
 macro Block.allocate(&self, alignment, amount, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_alloc(alignment, create_value(amount), result_location);
@@ -603,6 +628,7 @@ macro Block.allocate(&self, alignment, amount, Identifier result_location = DEFA
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_equality(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -641,6 +667,7 @@ fn Identifier Block.create_compare_equality(&self, TypeReference comparison_type
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 macro Block.compare_equality(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_equality(comparison_type, create_value(a), create_value(b), result_location);
@@ -658,6 +685,7 @@ macro Block.compare_equality(&self, TypeReference comparison_type, a, b, Identif
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_inequality(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -696,6 +724,7 @@ fn Identifier Block.create_compare_inequality(&self, TypeReference comparison_ty
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 macro Block.compare_inequality(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_inequality(comparison_type, create_value(a), create_value(b), result_location);
@@ -713,6 +742,7 @@ macro Block.compare_inequality(&self, TypeReference comparison_type, a, b, Ident
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_lower_equal(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -753,6 +783,7 @@ fn Identifier Block.create_compare_lower_equal(&self, TypeReference comparison_t
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 macro Block.compare_lower_equal(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_lower_equal(comparison_type, create_value(a), create_value(b), result_location);
@@ -770,6 +801,7 @@ macro Block.compare_lower_equal(&self, TypeReference comparison_type, a, b, Iden
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_lower(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -810,6 +842,7 @@ fn Identifier Block.create_compare_lower(&self, TypeReference comparison_type, V
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 macro Block.compare_lower(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_lower(comparison_type, create_value(a), create_value(b), result_location);
@@ -827,6 +860,7 @@ macro Block.compare_lower(&self, TypeReference comparison_type, a, b, Identifier
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_greater_equal(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -867,6 +901,7 @@ fn Identifier Block.create_compare_greater_equal(&self, TypeReference comparison
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 macro Block.compare_greater_equal(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_greater_equal(comparison_type, create_value(a), create_value(b), result_location);
@@ -884,6 +919,7 @@ macro Block.compare_greater_equal(&self, TypeReference comparison_type, a, b, Id
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_greater(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -924,6 +960,7 @@ fn Identifier Block.create_compare_greater(&self, TypeReference comparison_type,
  *
  *  @require comparison_type.type.store_load_type                   `Comparison type is invalid`
  *  @require result_location.type != GLOBAL                         `Result cannot be a global symbol`
+ *  @require !self.terminated                                       `Block has already been terminated!`
  */
 macro Block.compare_greater(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_greater(comparison_type, create_value(a), create_value(b), result_location);
@@ -941,6 +978,7 @@ macro Block.compare_greater(&self, TypeReference comparison_type, a, b, Identifi
  *
  *  @require comparison_type.type.float_type    `Comparison type is invalid`
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_ordered(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -967,6 +1005,7 @@ fn Identifier Block.create_compare_ordered(&self, TypeReference comparison_type,
  *
  *  @require comparison_type.type.float_type    `Comparison type is invalid`
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 macro Block.compare_ordered(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_ordered(comparison_type, create_value(a), create_value(b), result_location);
@@ -984,6 +1023,7 @@ macro Block.compare_ordered(&self, TypeReference comparison_type, a, b, Identifi
  *
  *  @require comparison_type.type.float_type    `Comparison type is invalid`
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 fn Identifier Block.create_compare_unordered(&self, TypeReference comparison_type, Value a, Value b, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -1010,6 +1050,7 @@ fn Identifier Block.create_compare_unordered(&self, TypeReference comparison_typ
  *
  *  @require comparison_type.type.float_type    `Comparison type is invalid`
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 macro Block.compare_unordered(&self, TypeReference comparison_type, a, b, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_compare_unordered(comparison_type, create_value(a), create_value(b), result_location);
@@ -1028,6 +1069,7 @@ macro Block.compare_unordered(&self, TypeReference comparison_type, a, b, Identi
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
  *  @require from.type.store_load_type          `Cannot convert from given type`
  *  @require to.type.store_load_type            `Cannot convert to given type`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 fn Identifier Block.create_convert(&self, TypeReference from, Value a, TypeReference to, Identifier result_location = DEFAULT_IDENTIFIER) {
     InstructionType itype;
@@ -1279,6 +1321,7 @@ fn Identifier Block.create_convert(&self, TypeReference from, Value a, TypeRefer
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
  *  @require from.type.store_load_type          `Cannot convert from given type`
  *  @require to.type.store_load_type            `Cannot convert to given type`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 macro Block.convert(&self, TypeReference from, a, TypeReference to, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_convert(from, create_value(a), to, result_location);
@@ -1296,6 +1339,7 @@ macro Block.convert(&self, TypeReference from, a, TypeReference to, Identifier r
  *
  *  @require type.type.base_type            `Type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.bitcast(&self, a, TypeReference type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_two_address(CAST, create_value(a), type, result_location);
@@ -1312,6 +1356,7 @@ macro Block.bitcast(&self, a, TypeReference type, Identifier result_location = D
  *
  *  @require type.type.base_type            `Type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.copy(&self, a, TypeReference type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_two_address(COPY, create_value(a), type, result_location);
@@ -1340,6 +1385,7 @@ fn CallList Block.create_call_list(&self) {
  *  @return                 "An identifier that represents the result of the call, if the return type is not void"
  *
  *  @require result_location.type != GLOBAL     `Result cannot be a global symbol`
+ *  @require !self.terminated                   `Block has already been terminated!`
  */
 fn Identifier Block.create_call(&self, Value method, CallList arguments, TypeReference return_type = TYPE_VOID, Identifier result_location = DEFAULT_IDENTIFIER) {
     if (result_location.type == UNINITIALIZED && return_type.type != NONE) {
@@ -1370,6 +1416,7 @@ fn Identifier Block.create_call(&self, Value method, CallList arguments, TypeRef
  *  @return                 "An identifier that represents the result of the call, if the return type is not void"
  *
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated               `Block has already been terminated!`
  */
 macro Block.call(&self, method, CallList arguments, TypeReference return_type = TYPE_VOID, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_call(create_value(method), arguments, return_type, result_location);
@@ -1383,6 +1430,7 @@ macro Block.call(&self, method, CallList arguments, TypeReference return_type = 
  *  @param method   "The function to call"
  *
  *  @require $vacount % 2 == 0  `Must provide an even number of varargs to the macro for type-value pairs`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.call_void(&self, method, ...) {
     CallList temp = self.create_call_list();
@@ -1403,6 +1451,7 @@ macro Block.call_void(&self, method, ...) {
  *  @return             "An identifier that represents the result of the call, if the return type is not void"
  *
  *  @require $vacount % 2 == 0  `Must provide an even number of varargs to the macro for type-value pairs`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.call_typed(&self, method, TypeReference return_type, ...) {
     CallList temp = self.create_call_list();
@@ -1425,6 +1474,7 @@ macro Block.call_typed(&self, method, TypeReference return_type, ...) {
  *
  *  @require $vacount % 2 == 0  `Must provide an even number of varargs to the macro for type-value pairs`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.call_typed_value(&self, method, TypeReference return_type, Identifier result_location, ...) {
     CallList temp = self.create_call_list();
@@ -1454,6 +1504,7 @@ macro Block.variadic_start(&self, pointer) {
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.variadic_arg(&self, pointer, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     return self.create_two_address(VARIADIC_ARG, create_value(pointer), result_type, result_location);
@@ -1482,6 +1533,7 @@ fn PhiList Block.create_phi_list(&self) {
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 fn Identifier Block.create_phi(&self, PhiList branches, TypeReference result_type, Identifier result_location = DEFAULT_IDENTIFIER) {
     if (result_location.type == UNINITIALIZED) {
@@ -1508,6 +1560,7 @@ fn Identifier Block.create_phi(&self, PhiList branches, TypeReference result_typ
  *  @require $vacount % 2 == 0  `Must provide an even number of varargs to the macro for block-value pairs`
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.phi_temp(&self, TypeReference result_type, ...) {
     PhiList temp = self.create_phi_list();
@@ -1529,6 +1582,7 @@ macro Block.phi_temp(&self, TypeReference result_type, ...) {
  *
  *  @require result_type.type.base_type     `Result type is not a first class type`
  *  @require result_location.type != GLOBAL `Result cannot be a global symbol`
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.phi(&self, TypeReference result_type, Identifier result_location, ...) {
     PhiList temp = self.create_phi_list();
@@ -1542,8 +1596,11 @@ macro Block.phi(&self, TypeReference result_type, Identifier result_location, ..
  *  Create and add an UNCONDITIONAL_JUMP instruction
  *
  *  @param [&in] to     "The block to jump to"
+ *
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 fn void Block.jump(&self, Block* to) {
+    self.terminated = true;
     self.add_instruction({
         .type = UNCONDITIONAL_JUMP,
         .jump = {
@@ -1554,8 +1611,11 @@ fn void Block.jump(&self, Block* to) {
 
 /**
  *  Create and add a HALT instruction
+ *
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 fn void Block.halt(&self) {
+    self.terminated = true;
     self.add_instruction({
         .type = HALT
     });
@@ -1565,8 +1625,11 @@ fn void Block.halt(&self) {
  *  Create and add a RETURN instruction
  *
  *  @param v    "The value to return, if none is passed, then it returns void"
+ *
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 fn void Block.create_return(&self, Value v = NO_VALUE) {
+    self.terminated = true;
     self.add_instruction({
         .type = RETURN,
         .ret = {
@@ -1579,8 +1642,11 @@ fn void Block.create_return(&self, Value v = NO_VALUE) {
  *  Create and add a RETURN instruction, automatically converting the parameters to values
  *
  *  @param retval    "The value to return, if none is passed, then it returns void"
+ *
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro void Block.ret(&self, retval = NO_VALUE) {
+    self.terminated = true;
     return self.create_return(create_value(retval));
 }
 
@@ -1590,8 +1656,11 @@ macro void Block.ret(&self, retval = NO_VALUE) {
  *  @param condition        "The condition to test"
  *  @param [&in] success    "Where to jump if the condition is true"
  *  @param [&in] failure    "Where to jump if the condition is false"
+ *
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 fn void Block.create_conditional_jump(&self, Value condition, Block* success, Block* failure) {
+    self.terminated = true;
     self.add_instruction({
         .type = CONDITIONAL_JUMP,
         .conditional = {
@@ -1605,9 +1674,11 @@ fn void Block.create_conditional_jump(&self, Value condition, Block* success, Bl
 /**
  *  Create and add a CONDITIONAL_JUMP instruction, automatically converting the parameters to values
  *
- *  @param condition        "The condition to test"
- *  @param [&in] success    "Where to jump if the condition is true"
- *  @param [&in] failure    "Where to jump if the condition is false"
+ *  @param condition            "The condition to test"
+ *  @param [&in] success        "Where to jump if the condition is true"
+ *  @param [&in] failure        "Where to jump if the condition is false"
+ *
+ *  @require !self.terminated   `Block has already been terminated!`
  */
 macro Block.conditional_jump(&self, condition, Block* success, Block* failure) {
     self.create_conditional_jump(create_value(condition), success, failure);
