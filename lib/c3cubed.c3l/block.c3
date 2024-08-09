@@ -617,6 +617,57 @@ macro Block.allocate(&self, alignment, amount, Identifier result_location = DEFA
 }
 
 /**
+ *  Create and add a stack allocation instruction to the beginning of the block
+ *
+ *  @param alignment        "The alignment of the stack allocation"
+ *  @param amount           "How many bytes to allocate on the stack"
+ *  @param result_location  "Where to store the result of the instruction, must not be a global symbol, if not passed a temporary location is used"
+ *
+ *  @return                 "An identifier that represents the result of the instruction"
+ *
+ *  @require alignment==4 || alignment == 8 || alignment == 16  `alignment must be one of 4, 8, or 16`
+ *  @require result_location.type != GLOBAL                     `Result cannot be a global symbol`
+ */
+fn Identifier Block.create_alloc_front(&self, usz alignment, Value amount, Identifier result_location = DEFAULT_IDENTIFIER) {
+    InstructionType itype;
+    switch (alignment) {
+        case 4: itype == ALLOCATE_ALIGN_4;
+        case 8: itype == ALLOCATE_ALIGN_8;
+        case 16: itype == ALLOCATE_ALIGN_16;
+    }
+    if (result_location.type == UNINITIALIZED) {
+        result_location = self.parent.next_temporary();
+    }
+    Instruction inst = {
+        .type = itype,
+        .two_address = {
+            .return_name = result_location,
+            .return_type = TYPE_LONG,
+            .a = result_location,
+        }
+    };
+    self.instructions.push_front(inst);
+    return result_location;
+}
+
+/**
+ *  Create and add a stack allocation instruction to beginning of the block, automatically converting the parameters to values
+ *
+ *  @param alignment        "The alignment of the stack allocation. must be one of 4, 8, or 16"
+ *  @param amount           "How many bytes to allocate on the stack"
+ *  @param result_location  "Where to store the result of the instruction, must not be a global symbol, if not passed a temporary location is used"
+ *
+ *  @return                 "An identifier that represents the result of the instruction"
+ *
+ *  @require alignment==4 || alignment == 8 || alignment == 16  `alignment must be one of 4, 8, or 16`
+ *  @require result_location.type != GLOBAL                     `Result cannot be a global symbol`
+ */
+macro Block.allocate_front(&self, alignment, amount, Identifier result_location = DEFAULT_IDENTIFIER) {
+    return self.create_alloc(alignment, create_value(amount), result_location);
+}
+
+
+/**
  *  Create and add an equality comparison instruction
  *
  *  @param comparison_type  "The type of values to compare, can't be an aggregate type"
@@ -652,7 +703,8 @@ fn Identifier Block.create_compare_equality(&self, TypeReference comparison_type
         default:
             unreachable();
     }
-    return self.create_three_address(itype, a, b, TYPE_WORD, result_location);
+    
+    // return self.create_three_address(itype, a, b, TYPE_WORD, result_location);
 }
 
 /**
