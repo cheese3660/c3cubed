@@ -243,10 +243,13 @@ fn void Data.zero(&self, ulong amount) {
  *  
  *  @param ident    "The symbol to reference"
  *  @param offset   "The offset to the symbol"
+ *  @param t        "The type to add the symbol as"
+ *
  */
-fn void Data.add_symbol(&self, Identifier ident, ulong offset=0) {
+fn void Data.add_symbol(&self, Identifier ident, ulong offset=0, TypeReference t=TYPE_LONG) {
     self.add_member({
         .type = SYMBOL_OFFSET,
+        .datatype = t,
         .size = offset,
         .ident = ident
     });
