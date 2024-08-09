@@ -492,7 +492,7 @@ fn void Block.create_store(&self, TypeReference type, Value value, Value locatio
  *  @require type.type.store_load_type      `Type is not valid for storing`
  *  @require !self.terminated               `Block has already been terminated!`
  */
-macro Block.store(&self, Identifier type, value, location) {
+macro Block.store(&self, TypeReference type, value, location) {
     self.create_store(type, create_value(value), create_value(location));
 }
 
@@ -643,10 +643,10 @@ fn Identifier Block.create_alloc_front(&self, usz alignment, Value amount, Ident
         .two_address = {
             .return_name = result_location,
             .return_type = TYPE_LONG,
-            .a = result_location,
+            .a = amount,
         }
     };
-    self.instructions.push_front(inst);
+    self.insts.push_front(inst);
     return result_location;
 }
 
@@ -704,7 +704,7 @@ fn Identifier Block.create_compare_equality(&self, TypeReference comparison_type
             unreachable();
     }
     
-    // return self.create_three_address(itype, a, b, TYPE_WORD, result_location);
+    return self.create_three_address(itype, a, b, TYPE_WORD, result_location);
 }
 
 /**
@@ -1698,7 +1698,6 @@ fn void Block.create_return(&self, Value v = NO_VALUE) {
  *  @require !self.terminated   `Block has already been terminated!`
  */
 macro void Block.ret(&self, retval = NO_VALUE) {
-    self.terminated = true;
     return self.create_return(create_value(retval));
 }
 
