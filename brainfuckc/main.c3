@@ -14,6 +14,8 @@ struct BrainfuckContext {
     Function* read_next;
     Function* zero;
     Function* halt_if_not_zero;
+    Function* find_zero_left;
+    Function* find_zero_right;
     Identifier putchar;
     uint next_function_name;
     FunctionMap functions;
@@ -30,7 +32,26 @@ fn Function* BrainfuckContext.get_temporary_function(&self) {
     return result;
 }
 
-fn Function* BrainfuckContext.get_function(&self, String brainfuck) {
+// Returns zero if it does not match, otherwise the amount of characters that is the implementation of the algorithm
+fn usz brainfuck_starts_with(String view, String algorithm) {
+    usz algorithm_ptr = 0;
+    for (usz i = 0; i < view.len; i++) {
+        char c = view[i];
+        if (c == '+' || c == '-' || c == '<' || c == '>' || c == '[' || c == ']' || c == ',' || c == '.') {
+            if (algorithm[algorithm_ptr] == c) {
+                algorithm_ptr += 1;
+                if (algorithm_ptr >= algorithm.len) {
+                    return i+1;
+                }
+            } else {
+                return 0;
+            }
+        }
+    }
+    return 0;
+}
+
+fn Function* BrainfuckContext.get_function(&self, String brainfuck, bool top_level = false) {
     if (self.functions.has_key(brainfuck)) {
         return self.functions.get(brainfuck)!!;
     }
@@ -39,6 +60,7 @@ fn Function* BrainfuckContext.get_function(&self, String brainfuck) {
     self.functions.set(brainfuck, method);
     bool collating_adds;
     bool collating_moves;
+    bool next_is_comment = top_level;
     int add_sub_amount;
     for (usz i = 0; i < brainfuck.len; i++) {
         char c = brainfuck[i];
@@ -125,13 +147,26 @@ fn Function* BrainfuckContext.get_function(&self, String brainfuck) {
                         if (brainfuck[i] == ']') expected -= 1;
                     } while(i < brainfuck.len-1 && expected != 0);
                     usz end = i-1;
+                    if (next_is_comment) {
+                        continue;
+                    }
                     if (end < begin) {
                         method.current_block.call_void(self.halt_if_not_zero);
+                        next_is_comment = true;
                         continue;
                     }
                     String view = brainfuck[begin..end];
                     if (view == "-" || view == "+") {
                         method.current_block.call_void(self.zero);
+                        next_is_comment = true;
+                        continue;
+                    } else if (view == ">") {
+                        method.current_block.call_void(self.find_zero_right);
+                        next_is_comment = true;
+                        continue;
+                    } else if (view == "<") {
+                        method.current_block.call_void(self.find_zero_left);
+                        next_is_comment = true;
                         continue;
                     }
                     Function* to_call = self.get_function(view);
@@ -147,10 +182,12 @@ fn Function* BrainfuckContext.get_function(&self, String brainfuck) {
                     method.add_block(call_block);
                     method.add_block(check_block);
                     method.add_block(continue_block);
+                    next_is_comment = true;
                 }
             default:
                 continue;
         }
+        next_is_comment = false;
     }
     if (collating_adds) {
         if (add_sub_amount != 0) {
@@ -239,6 +276,42 @@ fn Module better_brainfuck_to_module(String brainfuck) {
     halt_if_not_zero.add_block(ret_block);
     context.halt_if_not_zero = halt_if_not_zero;
 
+    Function* find_zero_left = context.mod.register_function("find_zero_left");
+    find_zero_left.begin_and_add_block();
+    start_block = find_zero_left.begin_block();
+    find_zero_left.current_block.jump(start_block);
+    find_zero_left.add_block(start_block);
+    Block* add_block = find_zero_left.begin_block();
+    ret_block = find_zero_left.begin_block();
+    current_loc = start_block.load(context.cell_pointer, c3cubed::TYPE_LONG);
+    value = start_block.load(current_loc, c3cubed::TYPE_BYTE);
+    start_block.conditional_jump(value, add_block, ret_block);
+    find_zero_left.add_block(add_block);
+    value = add_block.subtract(current_loc, 1, c3cubed::TYPE_LONG);
+    add_block.store(c3cubed::TYPE_LONG, value, context.cell_pointer);
+    add_block.jump(start_block);
+    find_zero_left.add_block(ret_block);
+    ret_block.ret();
+
+    context.find_zero_left = find_zero_left;
+
+    Function* find_zero_right = context.mod.register_function("find_zero_right");
+    find_zero_right.begin_and_add_block();
+    start_block = find_zero_right.begin_block();
+    find_zero_right.current_block.jump(start_block);
+    find_zero_right.add_block(start_block);
+    add_block = find_zero_right.begin_block();
+    ret_block = find_zero_right.begin_block();
+    current_loc = start_block.load(context.cell_pointer, c3cubed::TYPE_LONG);
+    value = start_block.load(current_loc, c3cubed::TYPE_BYTE);
+    find_zero_right.add_block(add_block);
+    value = add_block.add(current_loc, 1, c3cubed::TYPE_LONG);
+    add_block.store(c3cubed::TYPE_LONG, value, context.cell_pointer);
+    add_block.jump(start_block);
+    find_zero_right.add_block(ret_block);
+    ret_block.ret();
+    context.find_zero_right = find_zero_right;
+
 
     Function* main = context.mod.register_function("main");
     main.add_linkage({.type = EXPORT});
@@ -247,7 +320,7 @@ fn Module better_brainfuck_to_module(String brainfuck) {
     main.current_block.call_void(puts, c3cubed::TYPE_LONG, prompt);
     main.current_block.call_void(gets, c3cubed::TYPE_LONG, stdin);
 
-    main.current_block.call_void(context.get_function(brainfuck));
+    main.current_block.call_void(context.get_function(brainfuck, true));
 
     main.current_block.call_void(context.putchar, c3cubed::TYPE_UBYTE, '\n');
 
